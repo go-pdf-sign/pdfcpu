@@ -18,6 +18,7 @@ package pdfcpu
 
 import (
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 
@@ -26,8 +27,13 @@ import (
 
 var ErrHasAcroForm = errors.New("pdfcpu: existing")
 
+type Signer interface {
+	EstimateSignatureLength() int
+	Sign(data io.Reader) ([]byte, error)
+}
+
 // Sign creates a digital signature for xRefTable and writes the result to outFile.
-func (ctx *Context) Sign(outFile string) error {
+func (ctx *Context) Sign(outFile string, signer Signer) error {
 
 	xRefTable := ctx.XRefTable
 
@@ -49,7 +55,7 @@ func (ctx *Context) Sign(outFile string) error {
 	// <SubFilter, adbe.pkcs7.detached>
 	// <Type, Sig>
 
-	maxSigContentBytes := 100
+	maxSigContentBytes := signer.EstimateSignatureLength()
 
 	sigDict := Dict(
 		map[string]Object{
@@ -154,15 +160,20 @@ func (ctx *Context) Sign(outFile string) error {
 		return err
 	}
 
+	a0 := 0
+	a1 := int(ctx.Write.OffsetSigContents) + 1
+	a2 := int(ctx.Write.OffsetSigContents) + 1 + maxSigContentBytes*2
+	a3 := int(ctx.Write.FileSize)
+
 	_ = ctx.Write.FileSize
 	_ = ctx.Write.OffsetSigByteRange
 	_ = ctx.Write.OffsetSigContents
 
 	a := NewIntegerArray(
-		0,
-		int(ctx.Write.OffsetSigContents),
-		int(ctx.Write.OffsetSigContents)+maxSigContentBytes,
-		int(ctx.Write.FileSize)-1,
+		a0,
+		a1-a0,
+		a2,
+		a3-a2,
 	)
 
 	// Patch "ByteArray" in signature dict.
@@ -170,8 +181,26 @@ func (ctx *Context) Sign(outFile string) error {
 		return err
 	}
 
+	f, err := os.OpenFile(outFile, os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	part0 := io.NewSectionReader(f, int64(a0), int64(a1-a0))
+	part1 := io.NewSectionReader(f, int64(a2), int64(a3-a2))
+
+	fmt.Println(ctx.Write.OffsetSigContents)
+	pdfReader := io.MultiReader(part0, part1)
+	//b, _ := ioutil.ReadAll(pdfReader)
+	//ioutil.WriteFile("x.tmp", b, 0755)
+
 	// Create signature(outFile, byteRanges)
-	bb := []byte(hex.EncodeToString([]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}))
+	sig, err := signer.Sign(pdfReader)
+	if err != nil {
+		return err
+	}
+	bb := []byte(hex.EncodeToString(sig))
 
 	// Patch "Contents" in signature dict.
 	return patchFile(outFile, bb, ctx.Write.OffsetSigContents+1)

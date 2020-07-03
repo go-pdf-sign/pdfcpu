@@ -24,7 +24,7 @@ import (
 )
 
 // SignFile signs inFile with a digital signature and writes the result to outFile.
-func SignFile(inFile, outFile string, conf *pdf.Configuration) (err error) {
+func SignFile(inFile, outFile string, conf *pdf.Configuration, signer pdf.Signer) (err error) {
 
 	if conf == nil {
 		conf = pdf.NewDefaultConfiguration()
@@ -40,5 +40,5 @@ func SignFile(inFile, outFile string, conf *pdf.Configuration) (err error) {
 		return err
 	}
 
-	return ctx.Sign(outFile)
+	return ctx.Sign(outFile, signer)
 }
