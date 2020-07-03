@@ -35,6 +35,9 @@ type Signer interface {
 // Sign creates a digital signature for xRefTable and writes the result to outFile.
 func (ctx *Context) Sign(outFile string, signer Signer) error {
 
+	// hack
+	ctx.Configuration.WriteObjectStream = false
+
 	xRefTable := ctx.XRefTable
 
 	rootDict, err := xRefTable.Catalog()
@@ -107,6 +110,14 @@ func (ctx *Context) Sign(outFile string, signer Signer) error {
 		return err
 	}
 
+	pg, _ := xRefTable.DereferenceDictEntry(xRefTable.RootDict, "Pages")
+	pgd := pg.(Dict)
+	kids := pgd.ArrayEntry("Kids")
+	p0, _ := xRefTable.DereferenceDict(kids[0])
+
+	annots := Array{*ir}
+	p0.Update("Annots", annots)
+
 	// Create AcroForm
 
 	// 	23: was compressed 19[0] generation=0 pdfcpu.Dict
@@ -161,8 +172,8 @@ func (ctx *Context) Sign(outFile string, signer Signer) error {
 	}
 
 	a0 := 0
-	a1 := int(ctx.Write.OffsetSigContents) + 1
-	a2 := int(ctx.Write.OffsetSigContents) + 1 + maxSigContentBytes*2
+	a1 := int(ctx.Write.OffsetSigContents)
+	a2 := int(ctx.Write.OffsetSigContents) + 2 + maxSigContentBytes*2
 	a3 := int(ctx.Write.FileSize)
 
 	_ = ctx.Write.FileSize
