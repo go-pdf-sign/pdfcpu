@@ -40,5 +40,33 @@ func SignFile(inFile, outFile string, conf *pdf.Configuration, signer pdf.Signer
 		return err
 	}
 
-	return ctx.Sign(outFile, signer)
+	sigDict, err := ctx.PrepareSignature(signer)
+	if err != nil {
+		return err
+	}
+	return ctx.Sign(outFile, sigDict, signer)
+}
+
+// SignFile signs inFile with a digital signature and writes the result to outFile.
+func TimestampFile(inFile, outFile string, conf *pdf.Configuration, signer pdf.Signer) (err error) {
+
+	if conf == nil {
+		conf = pdf.NewDefaultConfiguration()
+	}
+
+	f, err := os.Open(inFile)
+	if err != nil {
+		return err
+	}
+
+	ctx, _, _, _, err := readValidateAndOptimize(f, conf, time.Now())
+	if err != nil {
+		return err
+	}
+
+	sigDict, err := ctx.PrepareTimestamp(signer)
+	if err != nil {
+		return err
+	}
+	return ctx.Sign(outFile, sigDict, signer)
 }

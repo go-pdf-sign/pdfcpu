@@ -254,6 +254,7 @@ func sigDictPDFString(d Dict) string {
 	logstr = append(logstr, fmt.Sprintf("/Type%s", d["Type"].PDFString()))
 	logstr = append(logstr, fmt.Sprintf("/Filter%s", d["Filter"].PDFString()))
 	logstr = append(logstr, fmt.Sprintf("/SubFilter%s", d["SubFilter"].PDFString()))
+	//	logstr = append(logstr, fmt.Sprintf("/M%s", d["M"].PDFString()))
 	logstr = append(logstr, ">>")
 	return strings.Join(logstr, "")
 }
@@ -273,7 +274,7 @@ func writeSigDict(ctx *Context, ir IndirectRef) error {
 	}
 
 	typ := d.NameEntry("Type")
-	if typ == nil || *typ != "Sig" {
+	if typ == nil {
 		return errors.New("corrupt sig dict")
 	}
 
@@ -283,7 +284,7 @@ func writeSigDict(ctx *Context, ir IndirectRef) error {
 	}
 
 	f = d.NameEntry("SubFilter")
-	if f == nil || *f != "adbe.pkcs7.detached" {
+	if f == nil {
 		return errors.Errorf("sig dict: unexpected SubFilter: %s", *f)
 	}
 
@@ -368,14 +369,15 @@ func writeSignature(ctx *Context, d Dict, objNr, genNr int) error {
 	if err := writeDictObject(ctx, objNr, genNr, d); err != nil {
 		return err
 	}
-
-	// Write font resource
-	resDict := d.DictEntry("DR")
-	fontResDict := resDict.DictEntry("Font")
-	ir := fontResDict.IndirectRefEntry("Courier")
-	if _, err := writeIndirectObject(ctx, *ir); err != nil {
-		return err
-	}
+	/*
+		// Write font resource
+		resDict := d.DictEntry("DR")
+		fontResDict := resDict.DictEntry("Font")
+		ir := fontResDict.IndirectRefEntry("Courier")
+		if _, err := writeIndirectObject(ctx, *ir); err != nil {
+			return err
+		}
+	*/
 
 	// Write fields
 	a := d.ArrayEntry("Fields")
